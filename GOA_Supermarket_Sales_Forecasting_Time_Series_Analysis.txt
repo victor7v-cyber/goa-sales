@@ -1,0 +1,276 @@
+{
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# GOA Supermarket — Sales Forecasting & Time Series Analysis\n",
+    "\n",
+    "**Company:** GOA Supermarket  \n",
+    "**Project type:** Business Analytics Project\n",
+    "\n",
+    "## Project objective\n",
+    "\n",
+    "**Project status:** Completed analysis of the available historical sales data at GOA Supermarket.\n",
+    "\n",
+    "Analyzed GOA Supermarket sales data to understand demand patterns, weekly seasonality, sales trends, volatility, and promotional performance. The analysis was designed to support more data-driven inventory, replenishment, and promotional planning.\n",
+    "\n",
+    "> **Important scope note:** This notebook documents the analyses actually supported by the available sales data and code. It does not claim a completed advanced forecasting model or measured inventory savings where those outcomes were not calculated.\n"
+   ],
+   "id": "cbf50806-35a7-4d93-bc82-fb9d1212d398"
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import matplotlib.pyplot as plt\n",
+    "import seaborn as sns\n",
+    "from statsmodels.tsa.seasonal import seasonal_decompose\n",
+    "import warnings\n",
+    "warnings.filterwarnings(\"ignore\")\n",
+    "\n",
+    "# Load the GOA Supermarket sales dataset.\n",
+    "# Keep the CSV in the same folder as this notebook, or update the path below.\n",
+    "df = pd.read_csv(\"sales_forecasting_data.csv\", parse_dates=[\"date\"])\n",
+    "df = df.sort_values(\"date\").reset_index(drop=True)\n",
+    "\n",
+    "print(\"Company: GOA Supermarket\")\n",
+    "print(f\"Rows: {len(df):,}\")\n",
+    "print(f\"Date range: {df['date'].min().date()} to {df['date'].max().date()}\")\n",
+    "print(\"Columns:\", list(df.columns))\n"
+   ],
+   "id": "b9443002-c32c-43a5-8822-724c0f4b89ac"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 1. Sales trends and historical demand\n",
+    "\n",
+    "Reviewed daily sales over time to identify upward/downward movements, unusual spikes or dips, and periods of changing demand. These observations provide context for inventory and replenishment planning.\n"
+   ],
+   "id": "e2087698-e682-4709-9319-bcf1e7c24716"
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "plt.figure(figsize=(12, 5))\n",
+    "plt.plot(df[\"date\"], df[\"sales\"], label=\"Daily Sales\", alpha=0.7)\n",
+    "plt.xlabel(\"Date\")\n",
+    "plt.ylabel(\"Sales\")\n",
+    "plt.title(\"GOA Supermarket — Daily Sales Over Time\")\n",
+    "plt.legend()\n",
+    "plt.tight_layout()\n",
+    "plt.show()\n"
+   ],
+   "id": "fb3bea10-6c03-4120-9dd3-64855b126788"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 2. Weekly seasonality\n",
+    "\n",
+    "Used additive time-series decomposition with a **7-day period** to separate the observed sales series into trend, weekly seasonal, and residual components.\n"
+   ],
+   "id": "483d8db3-e09d-46d2-a23a-feec62a3c676"
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "decomposition = seasonal_decompose(\n",
+    "    df.set_index(\"date\")[\"sales\"],\n",
+    "    model=\"additive\",\n",
+    "    period=7\n",
+    ")\n",
+    "\n",
+    "decomposition.plot()\n",
+    "plt.suptitle(\"GOA Supermarket — Weekly Sales Decomposition\", y=1.02)\n",
+    "plt.tight_layout()\n",
+    "plt.show()\n"
+   ],
+   "id": "df367a92-6e35-4146-9dcb-aebbfe17913b"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 3. 30-day moving average\n",
+    "\n",
+    "Calculated a **30-day moving average** to smooth short-term fluctuations and make the underlying sales trend easier to interpret.\n"
+   ],
+   "id": "a739b0c1-8191-4506-bbf3-6b3e5e2eed83"
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df[\"moving_avg_30d\"] = df[\"sales\"].rolling(window=30).mean()\n",
+    "\n",
+    "plt.figure(figsize=(12, 5))\n",
+    "plt.plot(df[\"date\"], df[\"sales\"], label=\"Daily Sales\", alpha=0.5)\n",
+    "plt.plot(df[\"date\"], df[\"moving_avg_30d\"], label=\"30-Day Moving Average\")\n",
+    "plt.xlabel(\"Date\")\n",
+    "plt.ylabel(\"Sales\")\n",
+    "plt.title(\"GOA Supermarket — Sales and 30-Day Moving Average\")\n",
+    "plt.legend()\n",
+    "plt.tight_layout()\n",
+    "plt.show()\n"
+   ],
+   "id": "d2462b31-bb33-43d0-afdd-d79090925f4d"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 4. Promotion analysis — quantified result\n",
+    "\n",
+    "Compared average sales on promotional versus non-promotional days. The calculation below produces the exact percentage difference directly from the underlying dataset, rather than relying on visual estimates from the chart.\n",
+    "\n",
+    "**Interpretation:** A positive percentage means average sales were higher on promotional days; it does **not** by itself establish that promotions caused the increase.\n"
+   ],
+   "id": "fa6ff2f1-2da4-4ecf-98d5-254f82db23d7"
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "promo_sales = df.groupby(\"promotion\")[\"sales\"].agg([\"mean\", \"count\"]).rename(columns={\"mean\": \"average_sales\", \"count\": \"days\"})\n",
+    "\n",
+    "# Assumes promotion=0 means no promotion and promotion=1 means promotion.\n",
+    "no_promo_avg = promo_sales.loc[0, \"average_sales\"]\n",
+    "promo_avg = promo_sales.loc[1, \"average_sales\"]\n",
+    "absolute_difference = promo_avg - no_promo_avg\n",
+    "percentage_difference = (absolute_difference / no_promo_avg) * 100\n",
+    "\n",
+    "print(\"Promotion comparison\")\n",
+    "print(promo_sales)\n",
+    "print(f\"\\nAverage sales — No promotion: {no_promo_avg:,.2f}\")\n",
+    "print(f\"Average sales — Promotion: {promo_avg:,.2f}\")\n",
+    "print(f\"Difference: {absolute_difference:,.2f}\")\n",
+    "print(f\"Percentage difference: {percentage_difference:.2f}%\")\n",
+    "\n",
+    "plt.figure(figsize=(7, 4))\n",
+    "sns.barplot(x=[\"No Promotion\", \"Promotion\"], y=[no_promo_avg, promo_avg])\n",
+    "plt.ylabel(\"Average Sales\")\n",
+    "plt.title(\"GOA Supermarket — Average Sales: Promotion vs. No Promotion\")\n",
+    "plt.tight_layout()\n",
+    "plt.show()\n"
+   ],
+   "id": "c8aae4d8-548c-4f62-ae73-0b9f1b550424"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 5. Sales volatility\n",
+    "\n",
+    "Calculated a **30-day rolling standard deviation** to monitor how sales variability changed over time. Higher values indicate periods with greater short-term sales fluctuation.\n"
+   ],
+   "id": "441297d2-6135-43e5-bdf6-8f099034e10e"
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df[\"rolling_std_30d\"] = df[\"sales\"].rolling(window=30).std()\n",
+    "\n",
+    "plt.figure(figsize=(12, 5))\n",
+    "plt.plot(df[\"date\"], df[\"rolling_std_30d\"], label=\"30-Day Rolling Std. Dev.\")\n",
+    "plt.xlabel(\"Date\")\n",
+    "plt.ylabel(\"Sales Volatility\")\n",
+    "plt.title(\"GOA Supermarket — 30-Day Sales Volatility\")\n",
+    "plt.legend()\n",
+    "plt.tight_layout()\n",
+    "plt.show()\n"
+   ],
+   "id": "b54022f6-5cee-46ae-a803-5734f0f06a64"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 6. Forecasting scope\n",
+    "\n",
+    "A 30-day future period can be generated for planning purposes. However, the original analysis did not contain a completed forecasting model or forecast accuracy metrics. Therefore, this project does **not** present a fabricated forecast or claim forecast accuracy.\n",
+    "\n",
+    "The analysis instead establishes the demand patterns that can be used as inputs for a subsequent forecasting model.\n"
+   ],
+   "id": "2ba0f4a4-9fd5-480b-a532-6d5fc2ed8ce5"
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "forecast_dates = pd.date_range(\n",
+    "    df[\"date\"].iloc[-1] + pd.Timedelta(days=1),\n",
+    "    periods=30,\n",
+    "    freq=\"D\"\n",
+    ")\n",
+    "\n",
+    "print(\"Prepared 30 future daily dates:\")\n",
+    "print(forecast_dates[:5].tolist(), \"...\", forecast_dates[-1].date())\n"
+   ],
+   "id": "6ca496ce-175a-4b1d-b796-deb27e5d74af"
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "## 7. Business recommendations for GOA Supermarket\n",
+    "\n",
+    "Based on the observed sales trends, weekly seasonality, promotional comparison, and volatility analysis:\n",
+    "\n",
+    "- Use recurring weekly patterns when planning replenishment and staffing.\n",
+    "- Use the 30-day moving average as a trend reference when reviewing inventory needs.\n",
+    "- Review promotional timing alongside baseline demand rather than evaluating promotion days in isolation.\n",
+    "- Monitor periods of elevated 30-day volatility for additional inventory-planning attention.\n",
+    "- Use the resulting demand patterns as a foundation for a future validated forecasting model.\n",
+    "\n",
+    "### Project outcome\n",
+    "\n",
+    "The analysis converted historical GOA Supermarket sales data into measurable demand-pattern insights and practical recommendations for inventory alignment, replenishment planning, and promotional decision-making.\n"
+   ],
+   "id": "32a7628b-bb4c-4b10-9bda-c5286f483393"
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python [conda env:base] *",
+   "language": "python",
+   "name": "conda-base-py"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.12.7"
+  },
+  "title": "GOA Supermarket — Sales Forecasting & Time Series Analysis"
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
